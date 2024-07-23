@@ -1,0 +1,137 @@
+# Use postgres/example user/password credentials
+version: '3.9'
+
+services:
+  postgres:
+    container_name: order_db
+    image: postgres
+    environment:
+      POSTGRES_DB: "order_db"
+      POSTGRES_USER: "user"
+      POSTGRES_PASSWORD: "password"
+      PGPORT: 5430
+    volumes:
+      - /var/lib/order:/postgresql/data
+    ports:
+      - "5430:5430"
+    restart: unless-stopped
+    networks:
+      back:
+        ipv4_address: 172.16.238.2
+      default:
+
+  postgres1:
+    container_name: account_db
+    image: postgres
+    environment:
+      POSTGRES_DB: "account_db"
+      POSTGRES_USER: "user"
+      POSTGRES_PASSWORD: "password"
+      PGPORT: 5431
+    volumes:
+      - /var/lib/account:/postgresql/data
+    ports:
+      - "5431:5431"
+    restart: unless-stopped
+    networks:
+      back:
+        ipv4_address: 172.16.238.3
+      default:
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_SERVER_ID: 1
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    hostname: kafka
+    container_name: kafka
+    ports:
+      - "15456:15456"
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_BROKER_ID: 1
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://172.16.238.4:5456,PLAINTEXT_HOST://localhost:15456
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+        - zookeeper
+    networks:
+      back:
+        ipv4_address: 172.16.238.4
+      default:
+
+  order-service:
+    build: Order\
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - kafka
+      - init-kafka
+      - account-service
+    restart: unless-stopped
+    networks:
+      back:
+        ipv4_address: 172.16.238.5
+      default:
+
+  account-service:
+    build: Account\
+    ports:
+      - "8001:8001"
+    depends_on:
+      - postgres1
+      - postgres
+      - kafka
+      - init-kafka
+    restart: unless-stopped
+    networks:
+      back:
+        ipv4_address: 172.16.238.6
+      default:
+
+
+
+  init-kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - kafka
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "
+      # blocks until kafka is reachable
+      kafka-topics --bootstrap-server 172.16.238.4:5456 --list
+
+      echo -e 'Creating kafka topics'
+      kafka-topics --bootstrap-server 172.16.238.4:5456 --create --if-not-exists --topic order --replication-factor 1 --partitions 1
+      kafka-topics --bootstrap-server 172.16.238.4:5456 --create --if-not-exists --topic order-status --replication-factor 1 --partitions 1
+
+
+      echo -e 'Successfully created the following topics:'
+      kafka-topics --bootstrap-server 172.16.238.4:5456 --list
+      "
+    networks:
+      back:
+        ipv4_address: 172.16.238.10
+      default:
+
+networks:
+  #Internal-only network for proper nginx proxying and ssh
+  back:
+    driver: bridge
+    internal: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.238.0/24
+  #External network actually
+  default:
+    driver: bridge

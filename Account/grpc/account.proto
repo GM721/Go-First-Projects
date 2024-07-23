@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+option go_package = "E:/Go Projects/Account/grpc";
+
+package grpc;
+
+service Account {
+  rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse) {}
+  rpc GetDeposit(GetDepositRequest) returns (GetDepositResponse) {}
+  rpc IncreaseDeposit(IncreaseDepositRequest) returns (IncreaseDepositResponse) {}
+}
+
+message CreateAccountRequest {
+  float Deposit = 1;
+}
+
+message CreateAccountResponse {
+  uint32 ID = 1;
+}
+
+message GetDepositRequest {
+  uint32 ID = 1;
+}
+
+message GetDepositResponse {
+  float Deposit = 1;
+}
+
+message IncreaseDepositRequest {
+  int32 ID = 1;
+  float Deposit = 2;
+}
+
+message IncreaseDepositResponse {
+  bool Success = 1;
+}

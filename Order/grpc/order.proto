@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+option go_package = "E:/Go Projects/Order/grpc";
+
+package grpc;
+
+service Order {
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse) {}
+  rpc GetOrder(GetOrderRequest) returns (GetOrderResponse) {}
+}
+
+message CreateOrderRequest {
+  uint64 UserID = 1;
+  double Amount = 2;
+}
+
+message CreateOrderResponse {
+  string TransactionID = 1;
+}
+
+message GetOrderRequest {
+  string TransactionID = 1;
+}
+
+message GetOrderResponse {
+  uint64 ID = 1;
+  uint64 ClientID = 2;
+  double Amount = 3;
+  Status status = 4;
+}
+enum Status {
+  CREATED = 0;
+  PAID = 1;
+  CANCELED = 2;
+}
